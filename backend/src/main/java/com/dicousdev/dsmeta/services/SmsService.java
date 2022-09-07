@@ -1,11 +1,13 @@
 package com.dicousdev.dsmeta.services;
 
+import java.time.format.DateTimeFormatter;
+import java.util.Optional;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.dicousdev.dsmeta.entities.Sale;
-import com.dicousdev.dsmeta.repositories.SaleRepository;
 import com.twilio.Twilio;
 import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.type.PhoneNumber;
@@ -26,20 +28,26 @@ public class SmsService {
 	private String twilioPhoneTo;
 	
 	@Autowired
-	private SaleRepository saleRepository;
+	private SaleService saleService;
 
 	public void sendSms(Long idVendedor) {
-
-		Sale sale = saleRepository.findById(idVendedor).get();
 		
-		String date = sale.getDate().getMonthValue() + "/" + sale.getDate().getYear();
-		String msg = "Vendedor " + sale.getNomeVendedor() + " foi destaque em " + date + " com um total de R$ " + String.format("%.2f", sale.getTotal());
+		Optional<Sale> saleOptional = saleService.findSaleById(idVendedor);
+		
+		if(!saleOptional.isPresent()) {
+			throw new RuntimeException("Vendedor não encontrado!");
+		}
+		
+		Sale sale = saleOptional.get();
+		DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("MM/yyyy");
+		String date = dateFormatter.format(sale.getDate());
+		String messageSMS = "Vendedor " + sale.getNomeVendedor() + " foi destaque em " + date + " com um total de R$ " + String.format("%.2f", sale.getTotal());
 		
 		
 		Twilio.init(twilioSid, twilioKey);
 		PhoneNumber to = new PhoneNumber(twilioPhoneTo);
 		PhoneNumber from = new PhoneNumber(twilioPhoneFrom);
-		Message message = Message.creator(to, from, msg).create();
+		Message message = Message.creator(to, from, messageSMS).create();
 		System.out.println(message.getSid());
 	}
 }
